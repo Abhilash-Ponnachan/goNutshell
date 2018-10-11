@@ -28,6 +28,12 @@ func main() {
 	y := 3.14159
 	// NOTE: here the type is inferred
 
+	// ==== Constants ====
+	const knst1 string = "String constant 1"
+	const knst2 int = 56
+	// type not specified
+	const knst3 = "hello there"
+	fmt.Printf("Types of knst1=%T & knst3=%T\n", knst1, knst3)
 	// ==== Formatted Printing to Console ====
 	// printing values using 'fmt.Printf' method
 	fmt.Printf("x = %d\n", x)
@@ -459,8 +465,8 @@ func main() {
 	// NOTE: The behaviour is injected
 
 	// --- HOF - Returning functions from HOF / function factory
-	c1 := counterFact() // counter 1
-	c2 := counterFact() // counter 2
+	c1 := counterFact(0)   // counter 1
+	c2 := counterFact(100) // counter 2
 	/*
 		NOTE: c1 & c2 are closures over the counter
 		variable 'i'
@@ -468,7 +474,85 @@ func main() {
 	fmt.Printf("counter 1 - value = %d\n", c1())
 	// counter 1 - value = 1
 	fmt.Printf("counter 2 - value = %d\n", c2())
-	// counter 2 - value = 1
+	// counter 2 - value = 101
+	/*
+		NOTE: Each instance of the closure has it's own copy
+		of the closed variable, 'init' in this case.
+	*/
+	// --- using typical HOF functions map & reduce (custom version) ---
+	nh := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	db := imap(nh, func(i int) int {
+		return i * 2
+	})
+	sm := ireduce(db, func(x, y int) int {
+		return x + y
+	})
+	fmt.Printf("Sum of doubles = %d\n", sm)
+	// Sum of doubles = 110
+
+	// ==== Advanced String ====
+	/*
+		A brief forray into how strings are represented in Go,
+		underlying bytes, Unicode, UTF-8 and runes!
+	*/
+	// --- byte slice ---
+	/*
+		A Go string is a slice of bytes, represented by enclosing in "".
+	*/
+	str1 := "Hello World!"
+	fmt.Printf("Printing out %s\n", str1)
+	// print as chars
+	for i := 0; i < len(str1); i++ {
+		fmt.Printf("%c ", str1[i])
+	}
+	fmt.Printf("\n")
+	// print as bytes (hex)
+	for i := 0; i < len(str1); i++ {
+		fmt.Printf("%x ", str1[i])
+	}
+	fmt.Printf("\n")
+	// print as bytes (dec)
+	for i := 0; i < len(str1); i++ {
+		fmt.Printf("%d ", str1[i])
+	}
+	fmt.Printf("\n")
+	// --- Unicode & UTF-8 ---
+	/*
+		Each character in a Go string is stored as a unicode value
+		encoded as UTF-8.
+		Let us try some non-english characters -
+	*/
+	str1 = "Señor"
+	fmt.Printf("Printing out %s\n", str1)
+	// print as chars
+	for i := 0; i < len(str1); i++ {
+		fmt.Printf("%c ", str1[i])
+	}
+	fmt.Printf("\n")
+	// print as bytes (hex)
+	for i := 0; i < len(str1); i++ {
+		fmt.Printf("%x ", str1[i])
+	}
+	fmt.Printf("\n")
+	/*
+		OOPS!
+			NOTE: How the character printing results in -
+			S e Ã ± o r
+			This is because the unicode point for -
+				ñ = E+00F1
+			which is two bytes long and ends up as
+				c3 and b1
+			>> so these two bytes get printed as
+			corresponding characters!
+
+		In other words, when if we deal directly with the
+		underlying bytes of a string, the unicode encoding
+		can get ignored and the resulting chachter we
+		decipher will be wrong!
+
+		This is why we have "runes" in Go
+	*/
+	// --- runes ---
 }
 
 // ==== Function declaration ====
@@ -565,10 +649,34 @@ func calc(x int, y int, oper func(int, int) int) int {
 type counter func() int
 
 // --- HOF - returning function / function factory ---
-func counterFact() counter {
-	i := 0
+func counterFact(init int) counter {
 	return func() int {
-		i++
-		return i
+		init++
+		return init
 	}
+}
+
+// --- Typical HOF - a 'map' function ---
+func imap(s []int, f func(int) int) []int {
+	var r []int
+	for _, v := range s {
+		r = append(r, f(v))
+	}
+	return r
+}
+
+// --- Typical HOF - a 'reduce' function ---
+func ireduce(s []int, f func(int, int) int) int {
+	i := 0
+	l := len(s)
+	r := 0
+	if l > 0 {
+		r = s[i]
+	}
+	i++
+	for i < l {
+		r = f(r, s[i])
+		i++
+	}
+	return r
 }
