@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	_ "fmt"
+	"unicode/utf8"
 )
 
 // define entry point
@@ -499,21 +500,13 @@ func main() {
 	/*
 		A Go string is a slice of bytes, represented by enclosing in "".
 	*/
-	str1 := "Hello World!"
-	fmt.Printf("Printing out %s\n", str1)
-	// print as chars
+	str1 := "Senior"
+	fmt.Printf("Printing out '%s' as bytes\n", str1)
 	for i := 0; i < len(str1); i++ {
-		fmt.Printf("%c ", str1[i])
-	}
-	fmt.Printf("\n")
-	// print as bytes (hex)
-	for i := 0; i < len(str1); i++ {
-		fmt.Printf("%x ", str1[i])
-	}
-	fmt.Printf("\n")
-	// print as bytes (dec)
-	for i := 0; i < len(str1); i++ {
-		fmt.Printf("%d ", str1[i])
+		fmt.Printf("%x = %c ", str1[i], str1[i])
+		if i != len(str1)-1 {
+			fmt.Printf("; ")
+		}
 	}
 	fmt.Printf("\n")
 	// --- Unicode & UTF-8 ---
@@ -523,15 +516,12 @@ func main() {
 		Let us try some non-english characters -
 	*/
 	str1 = "Señor"
-	fmt.Printf("Printing out %s\n", str1)
-	// print as chars
+	fmt.Printf("Printing out '%s' as bytes\n", str1)
 	for i := 0; i < len(str1); i++ {
-		fmt.Printf("%c ", str1[i])
-	}
-	fmt.Printf("\n")
-	// print as bytes (hex)
-	for i := 0; i < len(str1); i++ {
-		fmt.Printf("%x ", str1[i])
+		fmt.Printf("%x = %c ", str1[i], str1[i])
+		if i != len(str1)-1 {
+			fmt.Printf("; ")
+		}
 	}
 	fmt.Printf("\n")
 	/*
@@ -548,11 +538,120 @@ func main() {
 		In other words, when if we deal directly with the
 		underlying bytes of a string, the unicode encoding
 		can get ignored and the resulting chachter we
-		decipher will be wrong!
+		decipher can be wrong!
+
+		In this case the mapping was -
+			 			___ 0xC3
+		ñ -- E+00F1 ---|___ 0xB1
+
+		=> It takes two bytes to store ñ
+		When we read it back as bytes we get two bytes C3 & B1
+		for the one character ñ
+		And when we format print these with %c we get a caharcter each
+		for 0xC3 (Ã) and 0xB1 (±)
+		This is not what we expected. We want the two bytes
+		to be treated as one character (taking into account
+		the encoding)
 
 		This is why we have "runes" in Go
 	*/
 	// --- runes ---
+	/*
+		A rune is a builtin type in Go (it is really an alias for int32).
+		It's speciality is that a rune represents one unicode point,
+		irrespective of the number of underlying bytes.
+
+		In other words a rune in Go is equivalent to a unicode code point
+		for any character!
+	*/
+	// let us cast the string as a slice of runes
+	fmt.Printf("Printing out '%s' as runes\n", str1)
+	rns1 := []rune(str1) // as slice of runes
+	for i := 0; i < len(rns1); i++ {
+		fmt.Printf("%x = %c", rns1[i], rns1[i])
+		if i != len(rns1)-1 {
+			fmt.Printf("; ")
+		}
+	}
+	fmt.Printf("\n")
+	// --- for-range loop on strings ---
+	for i, r := range str1 {
+		fmt.Printf("rune at %d = %c\n", i, r)
+	}
+	/*
+		rune at 0 = S
+		rune at 1 = e
+		rune at 2 = ñ
+		rune at 4 = o	NOTE: how the previous char ñ takes 2 bytes
+		rune at 5 = r
+
+		The 'for-range' loop on string handles the encoding to return
+		the rune for each character, but returns the byte-index as the
+		first value!
+	*/
+	// --- combining bytes to get string ---
+	byts1 := []byte{0x53, 0x65, 0xc3, 0xb1, 0x6f, 0x72}
+	str1 = string(byts1)
+	fmt.Printf("%x bytes as string = %s\n", byts1, str1)
+	// NOTE: 6 bytes become 5 character string
+	// --- combining runes to get string ---
+	rns1 = []rune{0x53, 0x65, 0xf1, 0x6f, 0x72}
+	str1 = string(rns1)
+	fmt.Printf("%x runes as string = %s\n", rns1, str1)
+	// NOTE: 5 runes become 5 character string
+
+	// --- Length of string ---
+	fmt.Printf("len() of string %s = %d\n", str1, len(str1))
+	// Oops! - len(Señor) gives 6
+	/*
+		'len' gives the number of bytes, which
+		is not what we want in most cases with length
+		of string.
+
+		We are usually looking for 5 as the number
+		of characters in the string. we can do this
+		with utf8.RuneCountInString() function
+		for this we have to import unicode/utf8
+	*/
+	fmt.Printf("RuneCountInString() of string %s = %d\n", str1, utf8.RuneCountInString(str1))
+	// --- Strings are immutable ---
+	str2 := "abcd"
+	// str2[0] := "A" // This will give a compiler error
+	/*
+		Like most other programming languages string instances
+		are immutable in Go. This allows string pool optimizations
+		as well as avoids potential security issues.
+
+		To modify a string we can cast it as a slice of
+		runes, modify that and cast back as string.
+		The result will be a new string instance though.
+	*/
+	rns2 := []rune(str2)
+	rns2[0] = 'A'
+	str3 := string(rns2)
+	fmt.Printf("modified %s to %s\n", str2, str3)
+
+	// ==== Pointers ====
+	/*
+		A pointer is a variable that can hold the address
+		of another variable in memory. So in effect we can have
+		a reference to some memory (variable) via the pointer.
+
+		The syntax for declaring a pointer is *<Type of var>
+		>> var p *int // pointer to integer
+		The syntax for getting the address to some variable is &<variable>
+		>> p = &myInt
+	*/
+	myI1 := 23
+	var p1 *int
+	p1 = &myI1
+	fmt.Printf("Value of pointer p1 = %p\n", p1)
+	var p2 *string
+	fmt.Printf("Value of pointer p2 = %p\n", p2) // 0x0 or nil
+	if p2 == nil {
+		fmt.Printf("Unassigned pointer p2 is nil")
+	}
+
 }
 
 // ==== Function declaration ====
